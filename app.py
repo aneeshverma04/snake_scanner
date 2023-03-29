@@ -15,7 +15,7 @@ def nmap_python_ports_fetch(nmap_result,ip):
     else:
         print("Nmap Result incomplete")
         return []
-
+    
     size = len(formatted_result)
     list_ports = []
 
@@ -25,7 +25,7 @@ def nmap_python_ports_fetch(nmap_result,ip):
             service = formatted_result[i]['service']
             flag = False
             if 'product' in service.keys():
-                if "Python" in service['product']:
+                if service['product'].__contains__("Python"):
                     flag = True
             if 'extrainfo' in service.keys():
                 if "Python" in service['extrainfo']:
@@ -81,15 +81,10 @@ def check_website_python(url):
     mscan_list = mscan_list_1000 + mscan_list_500 + mscan_list_250
     # mscan_list = mscan_list_1000 + mscan_list_500 + mscan_list_250 + mscan_list_100
 
-    # mscan_list = []
-    # for i in range(5):
-    #     mscan_list = mscan_list + masscan_ports_fetch(1000,ip)
-   
-
     mscan_list_unique = list(set(mscan_list))
-    # mscan_list_unique = [80,443]
+    #mscan_list_unique = [8080]
     
-    # print(mscan_list_unique)
+    print(mscan_list_unique)
     
     # mscan_list_unique = [30341,32045]    
     mscan_list_str = ''.join(str(val)+"," for val in mscan_list_unique)
@@ -123,13 +118,14 @@ def fetch_editable_data(url,ports):
     for port in ports:
         new_session = requests.session()
         if port == 443:
-            url_complete = "https://"+url+":"+str(port)
+            url_complete = "https://"+url+":"+str(port)+"/setcookie"
             #resp = new_session.get("https://"+url+str(port))
             new_session.get(url_complete)
         else:
-            url_complete = "http://"+url+":"+str(port)
+            # url_complete = "http://"+url+":"+str(port)
+            url_complete = "http://"+url+":"+str(port)+"/setcookie"
             #resp = new_session.get("http://"+url+":"+str(port))
-            new_session.get(url_complete)
+            resp = new_session.get(url_complete)
         cookie = list(new_session.cookies.get_dict().values())
         if cookie == []:
             cookie = ['None']
@@ -159,10 +155,16 @@ def check_object_picklable(data):
     picklable_data = []
     for val in data:
         try:
-            pickletools.dis(val,out=StringIO())
-            picklable_data.append(True)
+            try:
+                pickle.loads(val)
+                picklable_data.append('Definitely')
+            except pickle.PicklingError:
+                picklable_data.append('False')
+            except:
+                pickletools.dis(val,out=StringIO())
+                picklable_data.append('True')
         except:
-            picklable_data.append(False)
+            picklable_data.append('False')
     StringIO().close
     return picklable_data
 
@@ -171,12 +173,14 @@ if __name__=="__main__":
     python_ports = check_website_python(url)
     encrypted_data = fetch_editable_data(url,python_ports)
     decrypted_data = decrypting_cookies(encrypted_data)
-    # decrypted_data = [b"(dp0\nS'serum'\np1\nccopy_reg\n_reconstructor\np2\n(c__main__\nanti_pickle_serum\np3\nc__builtin__\nobject\np4\nNtp5\nRp6\ns.","dadas",b"(dp0\nS'serum'\np1\nccopy_reg\n_reconstructor\np2\n(c__main__\nanti_pickle_serum\np3\nc__builtin__\nobject\np4\nNtp5\nRp6\ns."]
     picklable_data = check_object_picklable(decrypted_data)
     flag = False
     for i in range(len(picklable_data)):
-        if picklable_data[i] != False:
-            print(url+ ":" + str(python_ports[i]) +" might be susceptible to Insecure Deserialization")
+        if picklable_data[i] != 'False':
+            if picklable_data[i] == 'Definitely':
+                print(url+ ":" + str(python_ports[i]) +" is susceptible to Insecure Deserialization")
+            else:
+                print(url+ ":" + str(python_ports[i]) +" might be susceptible to Insecure Deserialization")
             flag = True
     
     if flag == False:
